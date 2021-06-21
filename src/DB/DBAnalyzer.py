@@ -14,7 +14,9 @@ import DB.DBArticle as DB
 import logging as log
 import requests
 from datetime import datetime
+from requests_html import AsyncHTMLSession # HTMLSession
 import bs4 as bs
+import asyncio
 
 
 class DBAnalyzer:
@@ -85,9 +87,24 @@ class DBAnalyzer:
             logger.exception("Exception occurred in method get_article_info")
 
     def fetch_articles(self):
+        logger = self.logger
+
         try:
-            # [article.fetch() for article in self.articles]
-            self.articles[0].fetch()
+            logger.info("Fetching articles from web")
+            logger.info("Creating session")
+            # Create session
+            session = AsyncHTMLSession()
+
+            # Create list of routines to call
+            tasks = []
+            for article in self.articles:
+                article.session = session
+                task = article.fetch
+                tasks.append(task)
+
+            session.run(*tasks)
+            logger.info("Articles fetched")
+
         except Exception as e:
             logger.exception("Exception occurred in method fetch_articles")
 

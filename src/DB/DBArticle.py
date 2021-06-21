@@ -9,7 +9,7 @@ sys.path.append(str(package_root_directory))
 
 
 import bs4 as bs
-from requests_html import HTMLSession
+from requests_html import AsyncHTMLSession # HTMLSession #Needed?
 import re
 import logging as log
 
@@ -42,12 +42,13 @@ class DBArticle:
         return re.sub("[ ]{2,}", " ", t.strip())
 
 
-    def fetch(self):
+    async def fetch(self):
         logger = self.logger
-        session = HTMLSession()
-        logger.info("HTMLSession created.")
-        self.response = session.get(self.URL)
+        self.response = await self.session.get(self.URL)
         logger.info("Response from server: " + str(self.response.status_code))
+        # async with session.get(self.URL) as reponse:
+        #     self.response = response
+        #     logger.info("Response from server: " + str(response.status_code))
 
     def render(self):
         logger = self.logger
