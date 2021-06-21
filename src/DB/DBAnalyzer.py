@@ -13,6 +13,20 @@ file = Path(__file__).resolve()
 package_root_directory = file.parents[1]
 sys.path.append(str(package_root_directory))
 
+<<<<<<< HEAD
+=======
+import utilities.logging as lg
+
+import DB.DBArticle as DB
+
+import logging as log
+import requests
+from datetime import datetime
+from requests_html import AsyncHTMLSession # HTMLSession
+import bs4 as bs
+import asyncio
+
+>>>>>>> main
 
 class DBAnalyzer:
 

@@ -1,13 +1,9 @@
 
-
 import DB.DBAnalyzer as DB
 import time
 
-
-<<<<<<< HEAD
 num_articles = 3
 obj = DB.DBAnalyzer(num_articles, block_size=2)
-=======
 num_articles = 2
 block_size = 10
 obj = DB.DBAnalyzer(num_articles, block_size)
