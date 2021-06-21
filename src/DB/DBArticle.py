@@ -27,11 +27,6 @@ class DBArticle:
         return f"URL: {self.URL}\tTimestamp: {self.timestamp}"
 
 
-    def read(self):
-        soup = bs.BeautifulSoup(self.response.html, 'lxml')
-        self.article = soup.find("body").find("article")
-        self.text = [VGArticle.clean(t.get_text()) for t in self.article.find_all(["h1", "h3", "p"])]
-        print(self.text)
 
     @staticmethod
     def clean(t):
@@ -40,6 +35,11 @@ class DBArticle:
         # remove supurfluous whitespaces and return
         return re.sub("[ ]{2,}", " ", t.strip())
 
+    def read(self):
+        soup = bs.BeautifulSoup(self.response.html.html, 'lxml')
+        self.article = soup.find("body").find("article")
+        self.text = [DBArticle.clean(t.get_text()) for t in self.article.find_all(["h1", "h3", "p"])]
+        print(self.text)
 
     async def fetch(self):
         try:
