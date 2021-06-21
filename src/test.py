@@ -5,8 +5,7 @@ import time
 
 
 num_articles = 2
-block_size = 10
-obj = DB.DBAnalyzer(num_articles, block_size)
+obj = DB.DBAnalyzer(num_articles, block_size = 2)
 obj.get_article_info()
 ###
 start_time = time.time()

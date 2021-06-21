@@ -13,8 +13,7 @@ file = Path(__file__).resolve()
 package_root_directory = file.parents[1]
 sys.path.append(str(package_root_directory))
 
-<<<<<<< HEAD
-=======
+
 import utilities.logging as lg
 
 import DB.DBArticle as DB
@@ -26,7 +25,6 @@ from requests_html import AsyncHTMLSession # HTMLSession
 import bs4 as bs
 import asyncio
 
->>>>>>> main
 
 class DBAnalyzer:
 
@@ -46,12 +44,12 @@ class DBAnalyzer:
         self.sitemaps = []  # in use?
         self.articles = []
         self.fetch_limit = 10
-        self.__init_logging(verbose)
+        self.__init_logging()
         self.logger.info("DBAnalyzer initialized.")
 
-    def __init_logging(self, verbose):
+    def __init_logging(self):
         # Settings
-        logging_level = log.INFO if verbose else log.WARNING
+        logging_level = log.INFO if self.verbose else log.WARNING
         formatter = log.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
