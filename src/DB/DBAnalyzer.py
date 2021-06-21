@@ -25,7 +25,7 @@ class DBAnalyzer:
     sitemap_parser = "lxml"
     sitemaps = None
 
-    def __init__(self, num_articles, block_size=3, verbose=True):
+    def __init__(self, num_articles, block_size=3, **kwargs):
         self.num_articles = num_articles
         self.block_size = block_size
         self.sitemaps = [] # in use?
