@@ -1,5 +1,6 @@
 # To-do list:
 
+* Caching?
 * Exception handling
 * Propper logging **Ongoing**
 * Logic for identifying relevant URLs

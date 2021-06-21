@@ -32,6 +32,7 @@ class DBAnalyzer:
         self.block_size = block_size
         self.sitemaps = [] # in use?
         self.articles = []
+        self.fetch_limit = 10
         self.__init_logging(verbose)
         self.logger.info("DBAnalyzer initialized.")
 
@@ -86,6 +87,11 @@ class DBAnalyzer:
         except Exception as e:
             logger.exception("Exception occurred in method get_article_info")
 
+    # def __fetch_batch(self, session, tasks):
+    #     logger = self.logger
+    #     logger.info(f"Fetching {len(tasks)} articles")
+
+
     def fetch_articles(self):
         logger = self.logger
 
@@ -102,8 +108,25 @@ class DBAnalyzer:
                 task = article.fetch
                 tasks.append(task)
 
-            session.run(*tasks)
-            logger.info("Articles fetched")
+            # Fetch in batches
+            while len(tasks) > 0:
+                tasks_to_run = tasks[:self.fetch_limit]
+                tasks = tasks[self.fetch_limit:]
+                logger.info(f"Fetching {len(tasks_to_run)} articles")
+                session.run(*tasks_to_run)
+
+            logger.info("All articles fetched")
+
+        except Exception as e:
+            logger.exception("Exception occurred in method fetch_articles")
+
+    def fetch_articles_std(self):
+        try:
+            from requests_html import HTMLSession # HTMLSession
+            session = HTMLSession()
+            for article in self.articles:
+                article.session = session
+                article.fetch_std()
 
         except Exception as e:
             logger.exception("Exception occurred in method fetch_articles")
