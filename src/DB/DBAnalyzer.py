@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 
 # Add parent folder to path
+import bs4 as bs
+from datetime import datetime
+import requests
+import logging as log
+import DB.DBArticle as DB
+import utilities.logging as lg
 import sys
 from pathlib import Path
 file = Path(__file__).resolve()
 package_root_directory = file.parents[1]
 sys.path.append(str(package_root_directory))
 
+<<<<<<< HEAD
+=======
 import utilities.logging as lg
 
 import DB.DBArticle as DB
@@ -18,29 +26,34 @@ from requests_html import AsyncHTMLSession # HTMLSession
 import bs4 as bs
 import asyncio
 
+>>>>>>> main
 
 class DBAnalyzer:
-
 
     # sitemap_URL = "https://www.dagbladet.no/sitemapindex.xml"
     sitemap_URL = "https://www.dagbladet.no/sitemap"
     sitemap_parser = "lxml"
     sitemaps = None
 
-    def __init__(self, num_articles, block_size=3, verbose=True):
+    def __init__(self, num_articles, **kwargs):
+        # default values
+        self.block_size = 5
+        self.verbose = True
+
+        self.__dict__.update(kwargs)
+
         self.num_articles = num_articles
-        self.block_size = block_size
-        self.sitemaps = [] # in use?
+        self.sitemaps = []  # in use?
         self.articles = []
         self.fetch_limit = 10
         self.__init_logging(verbose)
         self.logger.info("DBAnalyzer initialized.")
 
-
     def __init_logging(self, verbose):
         # Settings
         logging_level = log.INFO if verbose else log.WARNING
-        formatter = log.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = log.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         # Analyzer logger
         analyzer_handler = log.StreamHandler()
@@ -62,16 +75,19 @@ class DBAnalyzer:
             articles_pulled = 0
             while (articles_pulled < self.num_articles):
                 # Build request-parameters
-                count = min(self.block_size, self.num_articles - articles_pulled)
-                parameters = {"start" : articles_pulled, "count" : count, "pageType" : "front"}
+                count = min(self.block_size,
+                            self.num_articles - articles_pulled)
+                parameters = {"start": articles_pulled,
+                              "count": count, "pageType": "front"}
 
                 # Request sitemap
                 logger.info("Requesting sitemap")
-                response = requests.get(DBAnalyzer.sitemap_URL, params = parameters)
+                response = requests.get(
+                    DBAnalyzer.sitemap_URL, params=parameters)
                 response.raise_for_status()
                 logger.info("Creating sitemap-soup")
                 sitemap_soup = bs.BeautifulSoup(response.content,
-                    DBAnalyzer.sitemap_parser)
+                                                DBAnalyzer.sitemap_parser)
 
                 # Loop through articlelinks, generating DBArticle-objects
                 logger.info("Retrieving URLs in soup")
@@ -136,9 +152,6 @@ class DBAnalyzer:
         # [res = res + article + "\n" for article in self.articles]
         # return res
         return self.articles
-
-
-
 
 
 if __name__ == "__main__":

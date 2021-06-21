@@ -2,6 +2,7 @@
 
 * Caching?
 * Exception handling
+  * Invalid argument values
 * Propper logging **Ongoing**
 * Logic for identifying relevant URLs
 * Request delay
