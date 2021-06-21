@@ -31,7 +31,8 @@ class DBAnalyzer:
         self.num_articles = num_articles
         self.sitemaps = []  # in use?
         self.articles = []
-        self.__init_logging(self.verbose)
+        self.fetch_limit = 10
+        self.__init_logging(verbose)
         self.logger.info("DBAnalyzer initialized.")
 
     def __init_logging(self, verbose):
@@ -88,10 +89,47 @@ class DBAnalyzer:
         except Exception as e:
             logger.exception("Exception occurred in method get_article_info")
 
+    # def __fetch_batch(self, session, tasks):
+    #     logger = self.logger
+    #     logger.info(f"Fetching {len(tasks)} articles")
+
+
     def fetch_articles(self):
+        logger = self.logger
+
         try:
-            # [article.fetch() for article in self.articles]
-            self.articles[0].fetch()
+            logger.info("Fetching articles from web")
+            logger.info("Creating session")
+            # Create session
+            session = AsyncHTMLSession()
+
+            # Create list of routines to call
+            tasks = []
+            for article in self.articles:
+                article.session = session
+                task = article.fetch
+                tasks.append(task)
+
+            # Fetch in batches
+            while len(tasks) > 0:
+                tasks_to_run = tasks[:self.fetch_limit]
+                tasks = tasks[self.fetch_limit:]
+                logger.info(f"Fetching {len(tasks_to_run)} articles")
+                session.run(*tasks_to_run)
+
+            logger.info("All articles fetched")
+
+        except Exception as e:
+            logger.exception("Exception occurred in method fetch_articles")
+
+    def fetch_articles_std(self):
+        try:
+            from requests_html import HTMLSession # HTMLSession
+            session = HTMLSession()
+            for article in self.articles:
+                article.session = session
+                article.fetch_std()
+
         except Exception as e:
             logger.exception("Exception occurred in method fetch_articles")
 

@@ -1,11 +1,13 @@
 # To-do list:
 
+* Caching?
 * Exception handling
   * Invalid argument values
 * Propper logging **Ongoing**
 * Logic for identifying relevant URLs
 * Request delay
 * Article timestamp comparrison?
+* Article might not need soup? See https://docs.python-requests.org/projects/requests-html/en/latest/
 * Async / Concurrency ?
   * Implementing a common session in analyzer-class?
   * https://realpython.com/python-concurrency/#what-is-concurrency
