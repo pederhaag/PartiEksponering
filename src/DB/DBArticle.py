@@ -40,7 +40,6 @@ class DBArticle:
         self.article = soup.find("body").find("article")
         if self.article is not None:
             self.text = [DBArticle.clean(t.get_text()) for t in self.article.find_all(["h1", "h3", "p"])]
-        print(self.text)
 
     async def fetch(self):
         try:
@@ -50,29 +49,29 @@ class DBArticle:
             status_code = self.response.status_code
             if status_code != 200:
                 logger.exception(f"Server returned status code {status_code}")
-            logger.info(f"Response from server: {status_code}")
+            logger.debug(f"Response from server: {status_code}")
 
             # Render page
             await self.response.html.arender()
-            logger.info("Rendering complete")
+            logger.debug("Rendering complete")
 
         except Exception as e:
             logger.exception(f"Exception when fetching {self.URL}")
 
 
-    def fetch_std(self):
-        logger = self.logger
-        self.response = self.session.get(self.URL)
-        logger.info("Response from server: " + str(self.response.status_code))
-        self.render()
+    # def fetch_std(self):
+    #     logger = self.logger
+    #     self.response = self.session.get(self.URL)
+    #     logger.debug("Response from server: " + str(self.response.status_code))
+    #     self.render()
         # async with session.get(self.URL) as reponse:
         #     self.response = response
         #     logger.info("Response from server: " + str(response.status_code))
 
 
-    def render(self):
-        logger = self.logger
-        self.response.content.decode("utf-8")
-        self.response.html.render()
-        logger.info("Rendering complete")
-        self.html_content = self.response.html
+    # def render(self):
+    #     logger = self.logger
+    #     self.response.content.decode("utf-8")
+    #     self.response.html.render()
+    #     logger.info("Rendering complete")
+    #     self.html_content = self.response.html

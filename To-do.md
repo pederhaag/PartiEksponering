@@ -3,7 +3,8 @@
 * Caching?
 * Exception handling
   * Invalid argument values
-* Propper logging **Ongoing**
+* Propper logging
+  * Log level as attribute - kwargs
 * Request delay / Batching **Ongoing**
   * Batching has been implemented in fetch_articles()
 * Article might not need soup? See https://docs.python-requests.org/projects/requests-html/en/latest/
@@ -18,7 +19,7 @@
     * Blacklist
   * Wordclouds
 * Documentation
+* GUI
 
 # Next time:
-* Logic for identifying relevant URLs
-  * Use some sort of filter function? Static: DBArticle.filter()
+* Wordclouds
