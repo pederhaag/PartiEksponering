@@ -20,7 +20,7 @@ import DB.DBArticle as DB
 
 import logging as log
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from requests_html import AsyncHTMLSession # HTMLSession
 import bs4 as bs
 import asyncio
@@ -37,6 +37,7 @@ class DBAnalyzer:
         # default values
         self.block_size = 5
         self.verbose = True
+        self.max_age_days = 2
 
         self.__dict__.update(kwargs)
 
@@ -44,6 +45,7 @@ class DBAnalyzer:
         self.sitemaps = []  # in use?
         self.articles = []
         self.fetch_limit = 10
+
         self.__init_logging()
         self.logger.info("DBAnalyzer initialized.")
 
@@ -93,17 +95,18 @@ class DBAnalyzer:
                     article_URL = article_node.find("loc").get_text()
                     article_ts_iso = article_node.find("lastmod").get_text()
                     article_ts = datetime.fromisoformat(article_ts_iso)
-                    logger.info(f"Creating article from {article_URL}")
-                    self.articles.append(DB.DBArticle(article_URL, article_ts))
+                    if self.check_age(article_ts):
+                        logger.info(f"Creating article from {article_URL}")
+                        self.articles.append(DB.DBArticle(article_URL, article_ts))
 
                 articles_pulled += count
                 logger.info(f"Articles retrieved: {articles_pulled}")
         except Exception as e:
             logger.exception("Exception occurred in method get_article_info")
 
-    # def __fetch_batch(self, session, tasks):
-    #     logger = self.logger
-    #     logger.info(f"Fetching {len(tasks)} articles")
+    def check_age(self, article_ts):
+        age = datetime.today() - article_ts.replace(tzinfo=None)
+        return age.days < self.max_age_days
 
 
     def fetch_articles(self):

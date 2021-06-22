@@ -38,7 +38,8 @@ class DBArticle:
     def read(self):
         soup = bs.BeautifulSoup(self.response.html.html, 'lxml')
         self.article = soup.find("body").find("article")
-        self.text = [DBArticle.clean(t.get_text()) for t in self.article.find_all(["h1", "h3", "p"])]
+        if self.article is not None:
+            self.text = [DBArticle.clean(t.get_text()) for t in self.article.find_all(["h1", "h3", "p"])]
         print(self.text)
 
     async def fetch(self):
