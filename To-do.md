@@ -22,4 +22,7 @@
 * GUI
 
 # Next time:
+* Build database
+  * Strucutre
+  * Lemmaing etc
 * Wordclouds
