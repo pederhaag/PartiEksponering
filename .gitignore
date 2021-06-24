@@ -118,6 +118,12 @@ ENV/
 env.bak/
 venv.bak/
 
+# Source files - downloaded in script instead
+sources/
+
+# Database file - manually created in script instead
+*.db
+
 # Spyder project settings
 .spyderproject
 .spyproject

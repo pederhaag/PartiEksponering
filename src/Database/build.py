@@ -1,6 +1,7 @@
 # https://www.nb.no/sbfil/leksikalske_databaser/ordbank/20190123_norsk_ordbank_nob_2005.tar.gz
-import sqlite3 as sl
 import pathlib
+import sqlite3 as sl
+
 import pandas as pd
 
 db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "WordBank.db"

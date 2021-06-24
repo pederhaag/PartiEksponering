@@ -22,6 +22,7 @@
 * GUI
 
 # Next time:
+* Download for source
 * Build database
   * Strucutre
   * Lemmaing etc
