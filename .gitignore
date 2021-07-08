@@ -118,12 +118,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Source files - downloaded in script instead
-sources/
-
-# Database file - manually created in script instead
-*.db
-
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -149,3 +143,13 @@ dmypy.json
 cython_debug/
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+
+# Source files - downloaded in script instead
+sources/
+
+# Database file - manually created in script instead
+*.db
+
+# Other
+tests.py
