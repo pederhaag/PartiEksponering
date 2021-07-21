@@ -9,7 +9,7 @@ import requests
 import re
 import logging as log
 import DB.DBArticle as DB
-from Database.database_tools import build_lemma_translations
+from Database.database_tools import build_lemma_translations, import_stopwords
 
 # Add parent folder to path
 import sys
@@ -43,13 +43,13 @@ class DBAnalyzer:
 
         self.__init_logging()
 
-        if not hasattr(self, "excl_substrings"):
-            default_path = str(Path(__file__).resolve().parents[0]) + "\exclusion_substrings.txt"
-            self.excl_substrings = DBAnalyzer.__file_to_list(default_path)
+        if not hasattr(self, "excl_substrings_url"):
+            path = str(Path(__file__).resolve().parents[0]) + "\exclusion_substrings_url.txt"
+            self.excl_substrings_url = DBAnalyzer.__file_to_list(path)
 
         if not hasattr(self, "excl_re"):
-            default_path = str(Path(__file__).resolve().parents[0]) + "\exclusion_regex.txt"
-            self.excl_re = DBAnalyzer.__file_to_list(default_path)
+            path = str(Path(__file__).resolve().parents[0]) + "\exclusion_regex.txt"
+            self.excl_re = DBAnalyzer.__file_to_list(path)
 
 
         self.logger.debug("DBAnalyzer initialized.")
@@ -118,6 +118,10 @@ class DBAnalyzer:
         age = datetime.today() - article_ts.replace(tzinfo=None)
         return age.days < self.max_age_days
 
+    def set_log_level(self, level):
+        self.logger.info("Setting logging level = " + str(level))
+        self.logger.setLevel(level)
+
     def fetch_articles(self):
         logger = self.logger
 
@@ -157,7 +161,7 @@ class DBAnalyzer:
             return self.URL_filter(URL)
         else:
             path = URL.split("dagbladet.no", 1)[1]
-            for substring in self.excl_substrings:
+            for substring in self.excl_substrings_url:
                 if substring in URL:
                     return False
             for regex in self.excl_re:
@@ -179,10 +183,57 @@ class DBAnalyzer:
             logger.exception("Exception occurred in method fetch_articles")
 
     def __str__(self):
-        # res = ""
-        # [res = res + article + "\n" for article in self.articles]
-        # return res
-        return self.articles
+        return str(self.articles)
 
-    def lemmatize(self):
+
+    def read_articles(self):
+        logger = self.logger
+        try:
+            # Lemmatize each article
+            for art in self.articles:
+                logger.debug("Reading " + art.URL)
+                art.read()
+            logger.info(f"Finished reading {len(self.articles)} articles")
+            
+        except Exception as e:
+            logger.exception("Exception occurred in method read_articles")
+
+    def lemmatize_articles(self):
+        logger = self.logger
+        try:
+            # Grab translation
+            translations = build_lemma_translations()
+
+            # Lemmatize each article
+            for art in self.articles:
+                logger.debug("Lemmatizing " + art.URL)
+                art.lemmatize(translations)
+            logger.info(f"Finished lemmatizing {len(self.articles)} articles")
+            
+        except Exception as e:
+            logger.exception("Exception occurred in method lemmatize_articles")
+
+    def create_wordcloud(self, use_articles = None, stopwords = import_stopwords()):
+        logger = self.logger
+        try:
+            # Use self.articles unless otherwise specified
+            articles = self.articles if use_articles == None else use_articles
+
+            articles_words = []
+            # Concatenate word from each article
+            logger.info("Concatenate word from each article")
+            for art in articles:
+                logger.debug(f"Concatenating words in {art.URL}")
+                articles_words.append(" ".join(word for word in art.text.GRUNNFORM))
+            
+            # Concatenate words into a single long string
+            logger.info("Concatenate words into a single long string")
+            words = " ".join(s for s in articles_words)
+            print(words)
+            
+        except Exception as e:
+            logger.exception("Exception occurred in method create_wordcloud")
+
+    @staticmethod
+    def __display_wordcloud(words):
         pass

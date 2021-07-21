@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # Add parent folder to path
+from Database.database_tools import build_lemma_translations
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ sys.path.append(str(package_root_directory))
 import bs4 as bs
 from requests_html import AsyncHTMLSession, HTMLSession #Needed?
 import re
-import regex # for propper unicode
+import regex # for proper unicode
 import logging as log
 import pandas as pd
 
@@ -34,38 +35,49 @@ class DBArticle:
 
     @staticmethod
     def clean(t):
+        
         # remove '\n' and '\t'
         t = regex.sub("\\n|\\t", " ", t)
         # remove unwanted characters
         t = regex.sub("[^\w \ ]", "", t, re.UNICODE)
-        # remove supurfluous whitespaces and return
-        # return re.sub("[ ]{2,}", " ", t.strip())
         return t.lower()
+    
+    
+
+    @staticmethod
+    def valid_node(n):
+        # TODO: Needs try-catch
+        # This method is used to exclude nodes with text not
+        # relating to the subject of the article
+        # - i.e. advertising related
+        exclusions = [
+            "aller",
+            "ads-setting",
+            "css-pp-body"
+        ]
+        if "class" in n.attrs:
+            for keyword in exclusions:
+                if keyword in n.attrs["class"]:
+                    return False
+        
+        return True
 
     def read(self):
         # TODO: Needs try-catch
         soup = bs.BeautifulSoup(self.response.html.html, 'lxml')
         self.article = soup.find("body").find("article")
         if self.article is not None:
-            # self.text = []
             text = []
             for node in self.article.find_all(["h1", "h3", "p"]):
-                # self.text += DBArticle.clean(node.get_text()).split()
-                text += DBArticle.clean(node.get_text()).split()
+                if DBArticle.valid_node(node):
+                    text += DBArticle.clean(node.get_text()).split()
             self.text = pd.DataFrame(text, columns=["WORD"])
-            # self.text = [DBArticle.clean(t.get_text()).split() for t in self.article.find_all(["h1", "h3", "p"])]
 
-    def lemmatize(self, translations):
+    def lemmatize(self, translations = build_lemma_translations()):
         self.text = self.text.merge(translations, left_on="WORD", right_on="OPPSLAG", how="left")
         self.text.drop(columns=["OPPSLAG"], inplace=True)
-        # self.text.apply(DBArticle.lemma_cleaner, )
         self.text.GRUNNFORM.fillna(self.text.WORD, inplace=True)
 
-    # @staticmethod
-    # def lemma_cleaner(data):
-    #     if data[1] == "NaN":
-    #         return [data[0], data[0]]
-    #     return data
 
     async def afetch(self):
         try:
@@ -74,7 +86,7 @@ class DBArticle:
             self.response = await self.session.get(self.URL)
             status_code = self.response.status_code
             if status_code != 200:
-                logger.exception(f"Server returned status code {status_code}")
+                logger.exception(f"Server returned status code {status_code}. URL = {self.url}")
             logger.debug(f"Response from server: {status_code}")
 
             # Render page
@@ -104,10 +116,3 @@ class DBArticle:
             logger.exception(f"Exception when fetching {self.URL}")
 
 
-
-    # def render(self):
-    #     logger = self.logger
-    #     self.response.content.decode("utf-8")
-    #     self.response.html.render()
-    #     logger.info("Rendering complete")
-    #     self.html_content = self.response.html

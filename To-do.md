@@ -14,17 +14,10 @@
   * Remember request-delays!
   * fetch is I/O Bound but render is CPU bound?
     * Therefore split fetch and render and design them differently?
-* Methods for analysis:
-  * Most common words
-    * Blacklist
-  * Wordclouds
 * Documentation
 * GUI
 
 # Next time:
-* Download for source
-* Build database
-  * Strucutre
-  * Lemmaing etc
+* Download for source (storeage)
 * Wordclouds
-  * Remove boring words
+* Party-identification
