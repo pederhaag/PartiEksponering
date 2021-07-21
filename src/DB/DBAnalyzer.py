@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
-# Add parent folder to path
 import asyncio
 from requests_html import AsyncHTMLSession  # HTMLSession
 from datetime import datetime, timedelta, timezone
 import bs4 as bs
 from datetime import datetime
 import requests
+import re
 import logging as log
 import DB.DBArticle as DB
-import utilities.logging as lg
+from Database.database_tools import build_lemma_translations
+
+# Add parent folder to path
 import sys
 from pathlib import Path
 file = Path(__file__).resolve()
@@ -71,7 +73,7 @@ class DBAnalyzer:
         article_logger.addHandler(article_handler)
         article_logger.setLevel(self.logging_level)
 
-    def build_articles(self):
+    def read_sitemap(self):
         try:
             logger = self.logger
             articles_pulled = 0
@@ -129,7 +131,7 @@ class DBAnalyzer:
             tasks = []
             for article in self.articles:
                 article.session = session
-                task = article.fetch
+                task = article.afetch
                 tasks.append(task)
 
             # Fetch in batches
@@ -165,6 +167,7 @@ class DBAnalyzer:
             return True
 
     def fetch_articles_std(self):
+        logger = self.logger
         try:
             from requests_html import HTMLSession  # HTMLSession
             session = HTMLSession()
@@ -180,3 +183,6 @@ class DBAnalyzer:
         # [res = res + article + "\n" for article in self.articles]
         # return res
         return self.articles
+
+    def lemmatize(self):
+        pass

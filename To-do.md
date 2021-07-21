@@ -27,3 +27,4 @@
   * Strucutre
   * Lemmaing etc
 * Wordclouds
+  * Remove boring words
