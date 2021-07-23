@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import asyncio
+
 from requests_html import AsyncHTMLSession  # HTMLSession
 from datetime import datetime, timedelta, timezone
 import bs4 as bs
@@ -8,7 +8,13 @@ from datetime import datetime
 import requests
 import re
 import logging as log
+from itertools import chain
+
+from wordcloud.wordcloud import WordCloud
+import matplotlib.pyplot as plt
 import DB.DBArticle as DB
+import pandas as pd
+import numpy as np
 from Database.database_tools import build_lemma_translations, import_stopwords
 
 # Add parent folder to path
@@ -21,7 +27,6 @@ sys.path.append(str(package_root_directory))
 
 class DBAnalyzer:
 
-    # sitemap_URL = "https://www.dagbladet.no/sitemapindex.xml"
     sitemap_URL = "https://www.dagbladet.no/sitemap"
     sitemap_parser = "lxml"
     sitemaps = None
@@ -30,7 +35,7 @@ class DBAnalyzer:
         # default values
         self.block_size = 5
         self.verbose = True
-        self.max_age_days = 100
+        self.max_age_days = 99 # For articles older than 100 days Dagbladet requires a log in
         self.URL_filter = None
         self.fetch_limit = 10
         self.logging_level = log.INFO
@@ -217,23 +222,95 @@ class DBAnalyzer:
         logger = self.logger
         try:
             # Use self.articles unless otherwise specified
-            articles = self.articles if use_articles == None else use_articles
+            if use_articles == None:
+                articles = self.articles
+            else:
+                if use_articles == []:
+                    print("use_articles argumment cannot be an empty list!")
+                    return None
+                articles = use_articles
 
             articles_words = []
             # Concatenate word from each article
-            logger.info("Concatenate word from each article")
+            logger.info("Concatenating word from each article")
             for art in articles:
                 logger.debug(f"Concatenating words in {art.URL}")
                 articles_words.append(" ".join(word for word in art.text.GRUNNFORM))
             
             # Concatenate words into a single long string
-            logger.info("Concatenate words into a single long string")
+            logger.info("Concatenating words into a single long string")
             words = " ".join(s for s in articles_words)
-            print(words)
+            
+            #print(words)
+            DBAnalyzer.__display_wordcloud(WordCloud().generate(words))
             
         except Exception as e:
             logger.exception("Exception occurred in method create_wordcloud")
 
     @staticmethod
-    def __display_wordcloud(words):
-        pass
+    def merge_article_data(articles):
+        # Get all tags presents in articles
+        categories = set(chain.from_iterable(art.tags for art in articles))
+        
+        data = pd.DataFrame(columns=["GRUNNFORM"]+list(categories))
+        for art in articles:
+            art_df = art.text.drop(columns=["WORD"])
+            for tag in art.tags:
+                art_df[tag] = True
+            data = data.append(art_df, ignore_index=True)
+        
+        return data
+
+    
+
+    def frequency_plot(self, use_articles = None, stopwords = import_stopwords()):
+        logger = self.logger
+        try:
+            # Use self.articles unless otherwise specified
+            if use_articles == None:
+                articles = self.articles
+            else:
+                if use_articles == []:
+                    logger.exception("use_articles argumment cannot be an empty list!")
+                    return None
+                articles = use_articles
+
+            # Merge data-sets
+            data = DBAnalyzer.merge_article_data(articles)
+
+            # Remove stopwords
+            data = data[~data["GRUNNFORM"].isin(stopwords)]
+
+            # Get n most frequent words
+            n = 20
+            words_to_model = data["GRUNNFORM"].value_counts()[:n].index.tolist()
+            
+            # Gather plot data
+            categories = data.columns.tolist()[1:]
+            counting_data = []
+            for category in categories:
+                # Get series of words for the given category
+                words = data.query(f"{category}==True")["GRUNNFORM"]
+
+                # Do a normalized count
+                counts = words.value_counts(normalize=True)
+
+                # Add data to a dataframe used in plot
+                counting_data.append([counts.get(word, 0) for word in words_to_model])
+                
+            counting_df = pd.DataFrame(counting_data).transpose().rename(columns=lambda i: categories[i])
+
+            # Create plot
+            plot = counting_df.plot(kind = "bar", ylabel="Realtive frequency of word", xlabel="Word")
+            plot.set_xticklabels(words_to_model)
+            plt.show()
+             
+        except Exception as e:
+            logger.exception("Exception occurred in method frequency_plot")
+
+
+    @staticmethod
+    def __display_wordcloud(wordcloud):
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis("off")
+        plt.show()

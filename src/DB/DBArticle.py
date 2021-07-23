@@ -27,6 +27,7 @@ class DBArticle:
         self.text = None
         self.timestamp = timestamp
         self.logger = log.getLogger(__name__)
+        self.tags = ["Undef"]
 
     def __str__(self):
         return f"URL: {self.URL}\tTimestamp: {self.timestamp}"
@@ -53,14 +54,26 @@ class DBArticle:
         exclusions = [
             "aller",
             "ads-setting",
+            "ad-",
             "css-pp-body"
         ]
         if "class" in n.attrs:
             for keyword in exclusions:
-                if keyword in n.attrs["class"]:
-                    return False
-        
+                for class_ in n.attrs["class"]:
+                    if keyword in class_:
+                        return False
+
         return True
+
+
+    def set_tag(self, tag):
+        if "Undef" in self.tags:
+            self.tags = [tag]
+        else:
+            self.tags.append(tag)
+
+    def has_tag(self, tag):
+        return tag in self.tags
 
     def read(self):
         # TODO: Needs try-catch

@@ -18,6 +18,9 @@
 * GUI
 
 # Next time:
-* Download for source (storeage)
+* Download for source (storage)
 * Wordclouds
-* Party-identification
+* More stopwords
+* Classification based on
+  * Party
+  * Kultur/Nyheter/Tema etc
