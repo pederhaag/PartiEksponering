@@ -28,11 +28,14 @@ class DBArticle:
         self.timestamp = timestamp
         self.logger = log.getLogger(__name__)
         self.tags = ["Undef"]
+        self.processed = False
 
     def __str__(self):
         return f"URL: {self.URL}\tTimestamp: {self.timestamp}"
 
-
+    def give_data(self, data):
+        self.text = data
+        self.processed = True
 
     @staticmethod
     def clean(t):
@@ -65,6 +68,11 @@ class DBArticle:
 
         return True
 
+    def get_number_of_words(self):
+        return len(self.text.GRUNNFORM)
+
+    def clear_tags(self):
+        self.tags = ["Undef"]
 
     def set_tag(self, tag):
         if "Undef" in self.tags:
@@ -90,6 +98,7 @@ class DBArticle:
         self.text = self.text.merge(translations, left_on="WORD", right_on="OPPSLAG", how="left")
         self.text.drop(columns=["OPPSLAG"], inplace=True)
         self.text.GRUNNFORM.fillna(self.text.WORD, inplace=True)
+        self.processed = True
 
 
     async def afetch(self):

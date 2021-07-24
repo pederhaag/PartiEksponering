@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 
+# from src.Database.database_tools import store_article_data
 from requests_html import AsyncHTMLSession  # HTMLSession
 from datetime import datetime, timedelta, timezone
 import bs4 as bs
@@ -15,7 +16,7 @@ import matplotlib.pyplot as plt
 import DB.DBArticle as DB
 import pandas as pd
 import numpy as np
-from Database.database_tools import build_lemma_translations, import_stopwords
+from Database.database_tools import *
 
 # Add parent folder to path
 import sys
@@ -33,8 +34,7 @@ class DBAnalyzer:
 
     def __init__(self, num_articles, **kwargs):
         # default values
-        self.block_size = 5
-        self.verbose = True
+        self.block_size = 100
         self.max_age_days = 99 # For articles older than 100 days Dagbladet requires a log in
         self.URL_filter = None
         self.fetch_limit = 10
@@ -83,13 +83,14 @@ class DBAnalyzer:
             logger = self.logger
             articles_pulled = 0
             URLs_checked = -1
+            logger.info("Processing sitemaps")
             while (articles_pulled < self.num_articles):
                 # Build request-parameters
                 parameters = {"start": URLs_checked+1,
                               "count": self.block_size, "pageType": "article"}
 
                 # Request sitemap
-                logger.debug("Requesting sitemap")
+                logger.debug("Requesting a new sitemap")
                 response = requests.get(
                     DBAnalyzer.sitemap_URL, params=parameters)
                 response.raise_for_status()
@@ -115,7 +116,7 @@ class DBAnalyzer:
 
                 URLs_checked += self.block_size
 
-            logger.info(f"Articles retrieved: {articles_pulled}")
+            logger.info(f"Articles URLs retrieved: {articles_pulled}")
         except Exception as e:
             logger.exception("Exception occurred in method get_article_info")
 
@@ -136,14 +137,25 @@ class DBAnalyzer:
             # Create session
             session = AsyncHTMLSession()
 
-            # Create list of routines to call
+            
+            # List of routines to call later with session
             tasks = []
             for article in self.articles:
-                article.session = session
-                task = article.afetch
-                tasks.append(task)
+                # Try to fetch data from database
+                db_data = fetch_from_database(article.URL)
+                # If database has data, use it, else add task for fetching from web
+                if len(db_data) > 0:
+                    # Send the data to the article-object
+                    article.give_data(db_data)
+                    logger.debug(f"Retrieving {article.URL} from database.")
+                else:
+                    # Create tasks for web-fetching
+                    article.session = session
+                    task = article.afetch
+                    tasks.append(task)
+                    logger.debug(f"Creating task for fetching {article.URL} from the web.")
 
-            # Fetch in batches
+            # Fetch from web in batches
             while len(tasks) > 0:
                 tasks_to_run = tasks[:self.fetch_limit]
                 tasks = tasks[self.fetch_limit:]
@@ -175,14 +187,18 @@ class DBAnalyzer:
 
             return True
 
+    # Non-async version
     def fetch_articles_std(self):
         logger = self.logger
         try:
             from requests_html import HTMLSession  # HTMLSession
             session = HTMLSession()
             for article in self.articles:
-                article.session = session
-                article.fetch_std()
+                if not article.processed:
+                    article.session = session
+                    article.fetch_std()
+                else:
+                    logger.debug(f"Ignoring article {article.URL} already processed.")
 
         except Exception as e:
             logger.exception("Exception occurred in method fetch_articles")
@@ -190,14 +206,54 @@ class DBAnalyzer:
     def __str__(self):
         return str(self.articles)
 
+    # Get list of articles passed through filter
+    def filter_articles(self, filter):
+        logger = self.logger
+        try:
+            if not callable(filter):
+                raise TypeError("Filter must be callable!")
+
+            new_articles = []
+            for art in self.articles:
+                if filter(art):
+                    new_articles.append(art)
+
+            return new_articles
+        except Exception as e:
+            logger.exception("Exception occurred in method remove_articles")
+
+    # Get list of articles where wordcount is less than passed minimum
+    def filter_by_wordcount(self, minimum):
+        filter = lambda article: article.get_number_of_words() < minimum
+        return self.filter_articles(filter)
+
+    # Remove list of articles
+    def remove_articles(self, removeables):
+        logger = self.logger
+        try:
+            new_articles = []
+            for art in self.articles:
+                if art not in removeables:
+                    new_articles.append(art)
+                else:
+                    logger.debug(f"Marking {art.URL} for removal.")
+            
+            logger.info(f"Discarded {len(self.articles) - len(new_articles)} articles")
+            self.articles = new_articles
+        except Exception as e:
+            logger.exception("Exception occurred in method remove_articles")
 
     def read_articles(self):
         logger = self.logger
         try:
             # Lemmatize each article
             for art in self.articles:
-                logger.debug("Reading " + art.URL)
-                art.read()
+                if not art.processed:
+                    logger.debug("Reading " + art.URL)
+                    art.read()
+                else:
+                    logger.debug(f"Ignoring article {art.URL} already processed.")
+
             logger.info(f"Finished reading {len(self.articles)} articles")
             
         except Exception as e:
@@ -211,14 +267,33 @@ class DBAnalyzer:
 
             # Lemmatize each article
             for art in self.articles:
-                logger.debug("Lemmatizing " + art.URL)
-                art.lemmatize(translations)
+                if not art.processed:
+                    logger.debug("Lemmatizing " + art.URL)
+                    art.lemmatize(translations)
+                else:
+                    logger.debug(f"Ignoring article {art.URL} already processed.")
             logger.info(f"Finished lemmatizing {len(self.articles)} articles")
             
         except Exception as e:
             logger.exception("Exception occurred in method lemmatize_articles")
 
-    def create_wordcloud(self, use_articles = None, stopwords = import_stopwords()):
+    def store_articles(self):
+        logger = self.logger
+        try:
+            stored_count = 0
+            for art in self.articles:
+                if art.processed:
+                    log_msgs = store_article_data(art)
+                    for msg in log_msgs:
+                        logger.debug(msg)
+                    stored_count += 1
+            
+            logger.info(f"{stored_count} articles stored into database.")
+            
+        except Exception as e:
+            logger.exception("Exception occurred in method store_articles")
+
+    def wordcloud(self, use_articles = None, ignore_articles=[], stopwords = import_stopwords(), **kwargs):
         logger = self.logger
         try:
             # Use self.articles unless otherwise specified
@@ -229,6 +304,9 @@ class DBAnalyzer:
                     print("use_articles argumment cannot be an empty list!")
                     return None
                 articles = use_articles
+            
+            # Ignore articles
+            articles = [art for art in articles if art not in ignore_articles]
 
             articles_words = []
             # Concatenate word from each article
@@ -241,8 +319,8 @@ class DBAnalyzer:
             logger.info("Concatenating words into a single long string")
             words = " ".join(s for s in articles_words)
             
-            #print(words)
-            DBAnalyzer.__display_wordcloud(WordCloud().generate(words))
+            # Display
+            DBAnalyzer.__display_wordcloud(WordCloud(stopwords=stopwords).generate(words))
             
         except Exception as e:
             logger.exception("Exception occurred in method create_wordcloud")
@@ -261,9 +339,15 @@ class DBAnalyzer:
         
         return data
 
-    
+    def categorize_url(self):
+        for art in self.articles:
+            match = re.search("dagbladet\.no/(.*?)/", art.URL)
+            if match:
+                art.set_tag(match[1])
+            else:
+                art.clear_tags()
 
-    def frequency_plot(self, use_articles = None, stopwords = import_stopwords()):
+    def frequency_plot(self, n = 20, use_articles = None, ignore_articles=[],  stopwords = import_stopwords(), **kwargs):
         logger = self.logger
         try:
             # Use self.articles unless otherwise specified
@@ -274,15 +358,35 @@ class DBAnalyzer:
                     logger.exception("use_articles argumment cannot be an empty list!")
                     return None
                 articles = use_articles
+            
+            # Ignore articles
+            articles = [art for art in articles if art not in ignore_articles]
 
             # Merge data-sets
+            logger.debug("Merging data from articles")
             data = DBAnalyzer.merge_article_data(articles)
 
+            # Ensure all lowercase
+            data["GRUNNFORM"] = data["GRUNNFORM"].str.lower()
+
             # Remove stopwords
+            logger.debug("Removing stopwords")
             data = data[~data["GRUNNFORM"].isin(stopwords)]
 
+            # Pass through filters - filters
+            words_to_filter = []
+            for filter in kwargs.get("filters", []):
+                for word in data["GRUNNFORM"]:
+                    if filter(word): words_to_filter.append(word) 
+            if len(words_to_filter) > 0:
+                data = data[~data["GRUNNFORM"].isin(set(words_to_filter))]
+            
+
+            total_number_of_words = len(data["GRUNNFORM"])
+            total_number_of_articles = len(articles)
+
             # Get n most frequent words
-            n = 20
+            logger.debug(f"Retrieving {n} most popular words across all articles")
             words_to_model = data["GRUNNFORM"].value_counts()[:n].index.tolist()
             
             # Gather plot data
@@ -293,16 +397,26 @@ class DBAnalyzer:
                 words = data.query(f"{category}==True")["GRUNNFORM"]
 
                 # Do a normalized count
+                logger.debug(f"Counting words in category '{category}'")
                 counts = words.value_counts(normalize=True)
 
                 # Add data to a dataframe used in plot
+                logger.debug(f"Adding data from category '{category}' to plot")
                 counting_data.append([counts.get(word, 0) for word in words_to_model])
                 
             counting_df = pd.DataFrame(counting_data).transpose().rename(columns=lambda i: categories[i])
 
             # Create plot
+            logger.info("Creating frequency plot")
             plot = counting_df.plot(kind = "bar", ylabel="Realtive frequency of word", xlabel="Word")
             plot.set_xticklabels(words_to_model)
+            if "title" in kwargs:
+                plt.title(kwargs.get("title"))
+            else:
+                plt.title(
+                    f"Frequency plot for n = {n} most frequent words.\n"
+                    f"Total number of words {total_number_of_words} from {total_number_of_articles} articles."
+                )
             plt.show()
              
         except Exception as e:
@@ -310,7 +424,8 @@ class DBAnalyzer:
 
 
     @staticmethod
-    def __display_wordcloud(wordcloud):
+    def __display_wordcloud(wordcloud, title = None):
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis("off")
+
         plt.show()

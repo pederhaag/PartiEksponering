@@ -1,7 +1,79 @@
 # https://www.nb.no/sbfil/leksikalske_databaser/ordbank/20190123_norsk_ordbank_nob_2005.tar.gz
+from logging import error
 import pathlib
 import sqlite3 as sl
 import pandas as pd
+
+def get_article_db():
+    db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "StoredArticles.db"
+    return sl.connect(db_file)
+
+def store_article_data(art, refresh = False):
+    art_data = art.text
+    datacolumns = art_data.columns.tolist()
+    if len(datacolumns) != 2 or "WORD" not in datacolumns or "GRUNNFORM" not in datacolumns:
+        raise TypeError("Passed arguments must have columns ['WORD', 'GRUNNFORM'], has: " + datacolumns)
+
+    con = get_article_db()
+
+    # Container for log-messages returned to caller
+    log = []
+
+    if refresh == True:
+        delete_from_database(art.URL)
+        log.append(f"Previously stored data for {art.URL} flushed.")
+
+    if len(art_data) > 0:
+        # Check if data is already is stored
+        db_data = fetch_from_database(art.URL)
+        if len(db_data.index) == 0:
+            # Insert new data
+            new_db_data = art_data
+            new_db_data["URL"] = art.URL
+            new_db_data.to_sql('LEMMATIZED', con, if_exists = 'append')
+            log.append(f"{art.URL} saved into database.")
+        else:
+            log.append(f"{art.URL} already found in database.")
+
+    return log
+
+def delete_from_database(URL = None):
+    con = get_article_db()
+    cursor = con.cursor()
+
+    if URL == None:
+        # Delete all records
+        delete_statement = """
+            DELETE FROM
+                LEMMATIZED
+            """
+        cursor.execute(delete_statement)
+    else:
+        delete_statement = """
+            DELETE FROM
+                LEMMATIZED
+            WHERE
+                URL = :URL
+            """
+        cursor.execute(delete_statement, {"URL" : URL})
+    con.commit()
+
+def fetch_from_database(URL):
+
+    con = get_article_db()
+    cursor = con.cursor()
+
+    select_statement = """
+    SELECT
+	    WORD, GRUNNFORM
+    FROM
+	    LEMMATIZED
+    WHERE
+	    URL = :URL
+    """
+    
+    return pd.read_sql(select_statement, con, params={"URL" : URL})
+    
 
 def build_database():
     db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "WordBank.db"
@@ -69,6 +141,8 @@ def build_database():
 
     df_lemma_translations = pd.merge(df_lemma, df_fullform, how="inner",
         on="LEMMA_ID", indicator=True)
+    
+    con.close()
 
 
 def build_lemma_translations():
