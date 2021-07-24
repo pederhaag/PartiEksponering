@@ -4,9 +4,24 @@ import pathlib
 import sqlite3 as sl
 import pandas as pd
 
-def get_article_db():
-    db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "StoredArticles.db"
+def get_db(filename = "database.db"):
+    db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + filename
     return sl.connect(db_file)
+
+def get_source_folder():
+    return str(pathlib.Path().absolute()) + "\src\Database\\" + "sources\\"
+
+def import_politicians():
+    source_file = get_source_folder() + "valglisterogkandidaterstortingsvalget2021.csv"
+    cols_to_use = ["partikode", "partinavn", "kandidatnr", "navn"]
+    df = pd.read_csv(source_file, usecols=cols_to_use)
+
+    con = get_db()
+    
+    df.to_sql("POLITICIANS", con, if_exists = 'replace')
+
+    
+
 
 def store_article_data(art, refresh = False):
     art_data = art.text
@@ -14,7 +29,7 @@ def store_article_data(art, refresh = False):
     if len(datacolumns) != 2 or "WORD" not in datacolumns or "GRUNNFORM" not in datacolumns:
         raise TypeError("Passed arguments must have columns ['WORD', 'GRUNNFORM'], has: " + datacolumns)
 
-    con = get_article_db()
+    con = get_db()
 
     # Container for log-messages returned to caller
     log = []
@@ -26,44 +41,69 @@ def store_article_data(art, refresh = False):
     if len(art_data) > 0:
         # Check if data is already is stored
         db_data = fetch_from_database(art.URL)
-        if len(db_data.index) == 0:
+        if len(db_data[0].index) == 0:
             # Insert new data
+            # dataset
             new_db_data = art_data
             new_db_data["URL"] = art.URL
             new_db_data.to_sql('LEMMATIZED', con, if_exists = 'append')
+            # Raw text
+            store_raw_text(art)
             log.append(f"{art.URL} saved into database.")
         else:
             log.append(f"{art.URL} already found in database.")
 
     return log
 
-def delete_from_database(URL = None):
-    con = get_article_db()
+def store_raw_text(art):
+    con = get_db()
     cursor = con.cursor()
 
-    if URL == None:
-        # Delete all records
-        delete_statement = """
-            DELETE FROM
-                LEMMATIZED
-            """
-        cursor.execute(delete_statement)
-    else:
-        delete_statement = """
-            DELETE FROM
-                LEMMATIZED
-            WHERE
-                URL = :URL
-            """
-        cursor.execute(delete_statement, {"URL" : URL})
+    create_statement = """
+    CREATE TABLE IF NOT EXISTS RAWTEXT (
+        IX INTEGER PRIMARY KEY,
+        URL TEXT NOT NULL UNIQUE,
+        RAWTEXT TEXT NOT NULL
+    )
+    """
+    con.execute(create_statement)
+
+    insert_statement = """
+    INSERT INTO RAWTEXT (URL, RAWTEXT)
+        VALUES (?, ?)
+    """
+    cursor.execute(insert_statement, (art.URL, art.raw_text))
+    con.commit()
+
+def delete_from_database(URL = None):
+    con = get_db()
+    cursor = con.cursor()
+
+    for table_name in ["LEMMATIZED", "RAWTEXT"]:
+        if URL == None:
+            # Delete all records
+            delete_statement = f"""
+                DELETE FROM
+                    {table_name}
+                """
+            cursor.execute(delete_statement)
+        else:
+            # Delete only for supplied URL
+            delete_statement = f"""
+                DELETE FROM
+                    {table_name}
+                WHERE
+                    URL = :URL
+                """
+            cursor.execute(delete_statement, {"URL" : URL})
     con.commit()
 
 def fetch_from_database(URL):
 
-    con = get_article_db()
+    con = get_db()
     cursor = con.cursor()
 
-    select_statement = """
+    select_statement_df = """
     SELECT
 	    WORD, GRUNNFORM
     FROM
@@ -71,17 +111,37 @@ def fetch_from_database(URL):
     WHERE
 	    URL = :URL
     """
+
+    select_statement_raw = """
+    SELECT
+	    RAWTEXT
+    FROM
+	    RAWTEXT
+    WHERE
+	    URL = :URL
+    """
+
+    raw_text_record = cursor.execute(select_statement_raw, {"URL" : URL}).fetchone()
+    if raw_text_record == None:
+        raw_text = ""
+    else:
+        raw_text = raw_text_record[0]
+
+    data = [pd.read_sql(select_statement_df, con, params={"URL" : URL}),
+            raw_text]
     
-    return pd.read_sql(select_statement, con, params={"URL" : URL})
+    return data
+
     
 
-def build_database():
-    db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "WordBank.db"
-    source_folder = str(pathlib.Path().absolute()) + "\src\Database\\" + "sources\\" \
-        + "20190123_Norsk_ordbank_nob_2005\\"
-    con = sl.connect(db_file)
+def build_worddatabase():
+    # db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "WordBank.db"
+    # source_folder = str(pathlib.Path().absolute()) + "\src\Database\\" + "sources\\" \
+    #     + "20190123_Norsk_ordbank_nob_2005\\"
+    source_folder = get_source_folder() + "20190123_Norsk_ordbank_nob_2005\\"
+    con = get_db("WordBank.db")
+
     encoding = 'latin-1'
-
 
     df_boying = pd.read_csv(source_folder + "boying.txt", sep="\t", encoding=encoding)
     df_boying.to_sql('BOYING', con, if_exists = 'replace')
@@ -146,8 +206,7 @@ def build_database():
 
 
 def build_lemma_translations():
-    source_folder = str(pathlib.Path().absolute()) + "\src\Database\\" + "sources\\" \
-        + "20190123_Norsk_ordbank_nob_2005\\"
+    source_folder = get_source_folder() + "20190123_Norsk_ordbank_nob_2005\\"
     encoding = 'latin-1'
 
     # Fullform data

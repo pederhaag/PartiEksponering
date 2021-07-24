@@ -25,6 +25,7 @@ class DBArticle:
         self.html_content = None
         self.article = None
         self.text = None
+        self.raw_text = None
         self.timestamp = timestamp
         self.logger = log.getLogger(__name__)
         self.tags = ["Undef"]
@@ -84,14 +85,15 @@ class DBArticle:
         return tag in self.tags
 
     def read(self):
-        # TODO: Needs try-catch
         soup = bs.BeautifulSoup(self.response.html.html, 'lxml')
         self.article = soup.find("body").find("article")
         if self.article is not None:
+            self.raw_text = ""
             text = []
             for node in self.article.find_all(["h1", "h3", "p"]):
                 if DBArticle.valid_node(node):
                     text += DBArticle.clean(node.get_text()).split()
+                    self.raw_text += " " + node.get_text()
             self.text = pd.DataFrame(text, columns=["WORD"])
 
     def lemmatize(self, translations = build_lemma_translations()):

@@ -142,11 +142,12 @@ class DBAnalyzer:
             tasks = []
             for article in self.articles:
                 # Try to fetch data from database
-                db_data = fetch_from_database(article.URL)
+                db_data, raw_text = fetch_from_database(article.URL)
                 # If database has data, use it, else add task for fetching from web
                 if len(db_data) > 0:
                     # Send the data to the article-object
                     article.give_data(db_data)
+                    article.raw_text = raw_text
                     logger.debug(f"Retrieving {article.URL} from database.")
                 else:
                     # Create tasks for web-fetching
@@ -262,6 +263,7 @@ class DBAnalyzer:
     def lemmatize_articles(self):
         logger = self.logger
         try:
+            logger.info("Starting to lemmatize articles")
             # Grab translation
             translations = build_lemma_translations()
 
@@ -277,13 +279,13 @@ class DBAnalyzer:
         except Exception as e:
             logger.exception("Exception occurred in method lemmatize_articles")
 
-    def store_articles(self):
+    def store_articles(self, refresh=False):
         logger = self.logger
         try:
             stored_count = 0
             for art in self.articles:
                 if art.processed:
-                    log_msgs = store_article_data(art)
+                    log_msgs = store_article_data(art, refresh=refresh)
                     for msg in log_msgs:
                         logger.debug(msg)
                     stored_count += 1
