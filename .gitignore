@@ -146,7 +146,9 @@ cython_debug/
 
 
 # Source files - downloaded in script instead
-sources/
+**/sources/*
+!**/sources/download_sources.py
+
 
 # Database file - manually created in script instead
 *.db
