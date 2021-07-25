@@ -10,7 +10,7 @@ compared to many other norwegian newspapers. Other popular newspages, for exampl
 account, press GDPR-related popups or other actions which would complicate the webscraping.
 
 ### Features implemented
-Below some of the features of the codebase is listed. Though a cleanup/refactoring of parts of the code could be beneficial, but will probably not be done. __Warning: Messy code__
+Below some of the features of the codebase is listed. Though a cleanup/refactoring of parts of the code could be beneficial, but will probably not be done. __Warning: Messy and in many cases unoptimized code__
 - Async webscraping including javascript-rendering
   - Includes support for executing requests in batches at a time etc
 - Database storage (with SQLite) of article-data in order to not request same URL multiple times
@@ -33,13 +33,14 @@ Some of the stopwords used was retrieved from
 
 ## Analysis
 The script used to create these plots is [here](analysis/party_analysis.py). The `DBAnalyzer`-object attempted to scrape 500 articles from Dagbladet where the
-URL contained "/meninger/". Articles on Dagbladet is following the format `www.dagbladet.no/__X__/...` where __X__ signals a type of article. Articles on the form
+URL contained "/meninger/". Articles on Dagbladet is following the format `www.dagbladet.no/X/...` where __X__ signals a type of article. Articles on the form
 www.dagbladet.no/meninger/ signals opinion-pieces which should more often concern politics.
 
 Note that the analyzer stopped collecting webpages before reaching 500. It stopped when it had to start searching for articles older than 100 days. Articles older
 than this are problematic because for such old "/mening/"-articles Dagbladet.no requires a form of log-in it seems.
 
 After attempting to categorize the found articles it presents the following bar plot. Note that uncategorized articles are discarded from this plot
+
 ![Alt text](analysis/frequency_plots/FreqPlot.png?raw=true "Results")
 
 Commentating on the bar plot requires some degree knowledge of the different parties and their politics. However I will mention that many the distribution
