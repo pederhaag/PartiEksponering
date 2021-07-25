@@ -17,8 +17,27 @@ def import_politicians():
     df = pd.read_csv(source_file, usecols=cols_to_use)
 
     con = get_db()
-    
+
+    # Only consider some parties
+    #   to reduce number of operations
+    #   when classifying
+    parties_to_consider = [
+        "A",
+        "FNB",
+        "FRP",
+        "H",
+        "KRF",
+        "MDG",
+        "RØDT",
+        "SP",
+        "SV",
+        "V",
+    ]
+    df = df[df["partikode"].isin(parties_to_consider)]
+
     df.to_sql("POLITICIANS", con, if_exists = 'replace')
+
+    return df
 
     
 

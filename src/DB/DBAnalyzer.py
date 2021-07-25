@@ -32,21 +32,17 @@ class DBAnalyzer:
     sitemap_parser = "lxml"
     sitemaps = None
 
-    def __init__(self, num_articles, **kwargs):
+    def __init__(self, **kwargs):
         # default values
-        self.block_size = 100
+        self.block_size = 250 # Size of sitemap to request in each batch
         self.max_age_days = 99 # For articles older than 100 days Dagbladet requires a log in
         self.URL_filter = None
         self.fetch_limit = 10
         self.logging_level = log.INFO
-
-        self.__dict__.update(kwargs)
-
-        self.num_articles = num_articles
-        self.sitemaps = []  # in use?
         self.articles = []
 
         self.__init_logging()
+        self.__dict__.update(kwargs)
 
         if not hasattr(self, "excl_substrings_url"):
             path = str(Path(__file__).resolve().parents[0]) + "\exclusion_substrings_url.txt"
@@ -56,6 +52,18 @@ class DBAnalyzer:
             path = str(Path(__file__).resolve().parents[0]) + "\exclusion_regex.txt"
             self.excl_re = DBAnalyzer.__file_to_list(path)
 
+
+        if hasattr(self, "num_articles") and hasattr(self, "use_urls"):
+            raise ValueError("'num_articles' and 'use_urls' cannot both be passed!")
+
+        elif hasattr(self, "use_urls") and not hasattr(self, "num_articles"):            
+            [self.articles.append(DB.DBArticle(URL, None)) for URL in self.use_urls]
+            self.num_articles = len(self.articles)
+
+        elif not hasattr(self, "use_urls") and not hasattr(self, "num_articles"):
+            raise ValueError("Either 'num_articles' or 'use_urls' must be passed!")
+
+        
 
         self.logger.debug("DBAnalyzer initialized.")
 
@@ -83,40 +91,45 @@ class DBAnalyzer:
             logger = self.logger
             articles_pulled = 0
             URLs_checked = -1
-            logger.info("Processing sitemaps")
-            while (articles_pulled < self.num_articles):
-                # Build request-parameters
-                parameters = {"start": URLs_checked+1,
-                              "count": self.block_size, "pageType": "article"}
 
-                # Request sitemap
-                logger.debug("Requesting a new sitemap")
-                response = requests.get(
-                    DBAnalyzer.sitemap_URL, params=parameters)
-                response.raise_for_status()
-                logger.debug("Creating sitemap-soup")
-                sitemap_soup = bs.BeautifulSoup(response.content,
-                                                DBAnalyzer.sitemap_parser)
+            if hasattr(self, "use_urls"):
+                logger.info("No need for sitemap when 'use_urls'-parameter set.")
+                logger.info(f"Articles URLs retrieved: {articles_pulled}")
+            else:
+                logger.info("Processing sitemaps")
+                while (articles_pulled < self.num_articles):
+                    # Build request-parameters
+                    parameters = {"start": URLs_checked+1,
+                                "count": self.block_size, "pageType": "article"}
 
-                # Loop through articlelinks, generating DBArticle-objects
-                logger.debug("Retrieving URLs in soup")
-                for article_node in sitemap_soup.find_all("url"):
-                    article_URL = article_node.find("loc").get_text()
-                    article_ts_iso = article_node.find("lastmod").get_text()
-                    article_ts = datetime.fromisoformat(article_ts_iso)
-                    if self.check_age(article_ts) and self.relevant(article_URL):
-                        logger.debug(f"Creating article from {article_URL}")
-                        self.articles.append(
-                            DB.DBArticle(article_URL, article_ts))
-                        articles_pulled += 1
-                        if articles_pulled == self.num_articles:
-                            break
-                    else:
-                        logger.debug(f"Skipping {article_URL}")
+                    # Request sitemap
+                    logger.debug("Requesting a new sitemap")
+                    response = requests.get(
+                        DBAnalyzer.sitemap_URL, params=parameters)
+                    response.raise_for_status()
+                    logger.debug("Creating sitemap-soup")
+                    sitemap_soup = bs.BeautifulSoup(response.content,
+                                                    DBAnalyzer.sitemap_parser)
 
-                URLs_checked += self.block_size
+                    # Loop through articlelinks, generating DBArticle-objects
+                    logger.debug("Retrieving URLs in soup")
+                    for article_node in sitemap_soup.find_all("url"):
+                        article_URL = article_node.find("loc").get_text()
+                        article_ts_iso = article_node.find("lastmod").get_text()
+                        article_ts = datetime.fromisoformat(article_ts_iso)
+                        if self.check_age(article_ts) and self.relevant(article_URL):
+                            logger.debug(f"Creating article from {article_URL}")
+                            self.articles.append(
+                                DB.DBArticle(article_URL, article_ts))
+                            articles_pulled += 1
+                            if articles_pulled == self.num_articles:
+                                break
+                        else:
+                            logger.debug(f"Skipping {article_URL}")
 
-            logger.info(f"Articles URLs retrieved: {articles_pulled}")
+                    URLs_checked += self.block_size
+
+                logger.info(f"Articles URLs retrieved: {articles_pulled}")
         except Exception as e:
             logger.exception("Exception occurred in method get_article_info")
 
@@ -185,6 +198,12 @@ class DBAnalyzer:
             for regex in self.excl_re:
                 if re.search(regex, URL):
                     return False
+
+            if hasattr(self, "incl_substrings_url"):
+                for inclusion_substring in self.incl_substrings_url:
+                    if inclusion_substring in URL:
+                        return True
+                return False
 
             return True
 
@@ -342,6 +361,8 @@ class DBAnalyzer:
         return data
 
     def categorize_url(self):
+        self.clear_categories()
+
         for art in self.articles:
             match = re.search("dagbladet\.no/(.*?)/", art.URL)
             if match:
@@ -349,29 +370,88 @@ class DBAnalyzer:
             else:
                 art.clear_tags()
 
-    def frequency_plot(self, n = 20, use_articles = None, ignore_articles=[],  stopwords = import_stopwords(), **kwargs):
+    def categorize_party(self, max_candidate_number = 3):
+        logger = self.logger
+
+        self.clear_categories()
+
+        logger.debug("Import data on politicians.")
+        pol_df = import_politicians()
+
+        # Only consider the politicians based on candidate number
+        pol_df = pol_df[pol_df["kandidatnr"] <= max_candidate_number]
+
+        logger.debug(f"Starting to categorize.")
+
+        # container for the categorizations
+        categorizations = dict()
+        for party in pol_df["partikode"].unique():
+            categorizations[party] = []
+
+        party_names = {
+                    "A" : ["AP", " Ap ", "Arbeiderpartiet", "Arbeidarpartiet"],
+                    "FNB" : ["FNB", "Folkeaksjonen Nei til mer bompenger"],
+                    "FRP" : ["FRP", "Fremskrittspartiet", "FrP", "Framstegspartiet"],
+                    "H" : ["Høyre", "Høgre"],
+                    "KRF" : ["KRF", "KrF", "Kristelig Folkeparti", "Kristeleg Folkeparti"],
+                    "MDG" : ["MDG", "Miljøpartiet De Grønne", "Miljøpartiet Dei Grøne"],
+                    "RØDT" : ["Rødt", "Raudt"],
+                    "SP" : ["SP", " Sp ", "Senterpartiet"],
+                    "SV" : ["SV", " Sv ", "Sosialistisk Venstreparti"],
+                    "V" : ["Venstre"]
+                }
+        for i, article in enumerate(self.articles):
+
+            logger.debug(f"Categorizing ({i+1}/{len(self.articles)}) {article.URL}")
+            # For each party....
+            for party in pol_df["partikode"].unique():
+                # Search for representatives' name in article
+                for name in pol_df[pol_df["partikode"] == party]["navn"]:
+                    if name in article.raw_text:
+                        categorizations[party].append(article)
+                        break # No need to scan for further for the same party
+
+                # If not already classified, look for party name/abbreviations
+                if article not in categorizations[party]:
+                    for party_name in party_names[party]:
+                        if party_name in article.raw_text:
+                            categorizations[party].append(article)
+                            break # No need to scan for further for the same party
+        
+        
+        # Set tags on articles
+        for party in categorizations:
+            for article in categorizations[party]:
+                article.set_tag(party)
+        logger.info("Categorizations complete")
+
+    
+    def clear_categories(self):
+        [art.clear_tags() for art in self.articles]
+        self.logger.info("Cleared tags for all articles.")
+
+    def frequency_plot(self, **kwargs):
         logger = self.logger
         try:
+
+
             # Use self.articles unless otherwise specified
-            if use_articles == None:
-                articles = self.articles
-            else:
-                if use_articles == []:
-                    logger.exception("use_articles argumment cannot be an empty list!")
-                    return None
-                articles = use_articles
+            articles = kwargs.get("use_articles", self.articles)
             
             # Ignore articles
-            articles = [art for art in articles if art not in ignore_articles]
+            articles = [art for art in articles if art not in kwargs.get("ignore_articles", [])]
 
             # Merge data-sets
             logger.debug("Merging data from articles")
+            if kwargs.get("only_categorized", False):
+                articles = [art for art in articles if art.is_tagged()]
             data = DBAnalyzer.merge_article_data(articles)
 
             # Ensure all lowercase
             data["GRUNNFORM"] = data["GRUNNFORM"].str.lower()
 
             # Remove stopwords
+            stopwords = kwargs.get("stopwords", import_stopwords())
             logger.debug("Removing stopwords")
             data = data[~data["GRUNNFORM"].isin(stopwords)]
 
@@ -388,6 +468,7 @@ class DBAnalyzer:
             total_number_of_articles = len(articles)
 
             # Get n most frequent words
+            n = kwargs.get("n", 20)
             logger.debug(f"Retrieving {n} most popular words across all articles")
             words_to_model = data["GRUNNFORM"].value_counts()[:n].index.tolist()
             

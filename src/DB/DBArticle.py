@@ -51,7 +51,6 @@ class DBArticle:
 
     @staticmethod
     def valid_node(n):
-        # TODO: Needs try-catch
         # This method is used to exclude nodes with text not
         # relating to the subject of the article
         # - i.e. advertising related
@@ -81,6 +80,9 @@ class DBArticle:
         else:
             self.tags.append(tag)
 
+    def is_tagged(self):
+        return self.tags != ["Undef"]
+
     def has_tag(self, tag):
         return tag in self.tags
 
@@ -90,7 +92,7 @@ class DBArticle:
         if self.article is not None:
             self.raw_text = ""
             text = []
-            for node in self.article.find_all(["h1", "h3", "p"]):
+            for node in self.article.find_all(["h1", "h3", "p", "figcaption"]):
                 if DBArticle.valid_node(node):
                     text += DBArticle.clean(node.get_text()).split()
                     self.raw_text += " " + node.get_text()

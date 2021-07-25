@@ -244,3 +244,5 @@ gi
 mye
 tilgang
 daglig
+elle
+fare
