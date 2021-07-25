@@ -11,6 +11,7 @@ package_root_directory = file.parents[1]
 sys.path.append(str(package_root_directory))
 
 
+from datetime import datetime
 import bs4 as bs
 from requests_html import AsyncHTMLSession, HTMLSession #Needed?
 import re
@@ -37,6 +38,9 @@ class DBArticle:
     def give_data(self, data):
         self.text = data
         self.processed = True
+
+    def get_Age(self):
+        return datetime.today() - self.timestamp.replace(tzinfo=None)
 
     @staticmethod
     def clean(t):

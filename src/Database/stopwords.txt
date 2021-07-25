@@ -219,6 +219,7 @@ utenfor
 ved
 via
 # 50 vanlige preposisjoner (Kilde: https://toppnorsk.com/2018/02/17/50-preposisjoner/) - END
+# Some improvised stopwords based on some testing
 av
 va
 se
@@ -246,3 +247,12 @@ tilgang
 daglig
 elle
 fare
+parti
+nok
+vill
+annen
+en
+to
+tre
+ti
+all

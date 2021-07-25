@@ -18,22 +18,7 @@ def import_politicians():
 
     con = get_db()
 
-    # Only consider some parties
-    #   to reduce number of operations
-    #   when classifying
-    parties_to_consider = [
-        "A",
-        "FNB",
-        "FRP",
-        "H",
-        "KRF",
-        "MDG",
-        "RØDT",
-        "SP",
-        "SV",
-        "V",
-    ]
-    df = df[df["partikode"].isin(parties_to_consider)]
+    df = df[df["partikode"].isin(parties_to_consider())]
 
     df.to_sql("POLITICIANS", con, if_exists = 'replace')
 
@@ -152,6 +137,11 @@ def fetch_from_database(URL):
     return data
 
     
+def parties_to_consider():
+    # Only consider some parties
+    #   to reduce number of operations
+    #   when classifying
+    return ["A", "FNB", "FRP", "H", "KRF", "MDG", "RØDT", "SP", "SV", "V",]
 
 def build_worddatabase():
     # db_file = str(pathlib.Path().absolute()) + "\src\Database\\" + "WordBank.db"
@@ -263,9 +253,9 @@ def build_lemma_translations():
 def import_stopwords():
     source_folder = str(pathlib.Path().absolute()) + "\src\Database\\"
     df = pd.read_csv(source_folder + "stopwords.txt", names=["stopword"], comment="#")
-    return set(df.stopword)
+    stopwords = set(df.stopword) 
+    # Also add party names
+    party_names = list(map(lambda x: x.lower(), parties_to_consider()))
+    stopwords.update(party_names)
+    return stopwords
 
-if __name__ == "__main__":
-    # build_lemma_translations()
-    # print(build_lemma_translations())
-    print(import_stopwords())
