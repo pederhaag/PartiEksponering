@@ -14,3 +14,8 @@ def make_mask(picture):
         mask[r] = np.array([transform(x) for x in row])
     
     return mask
+
+if __name__ == "__main__":
+    mask = make_mask("V")
+    img = Image.fromarray(mask)
+    img.show()

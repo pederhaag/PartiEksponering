@@ -42,8 +42,8 @@ class DBAnalyzer:
         self.logging_level = log.INFO
         self.articles = []
 
-        self.__init_logging()
         self.__dict__.update(kwargs)
+        self.__init_logging()
 
         if self.max_age_days > 99:
             self.logger.warning("Analyzer will not be able to properly " + \
@@ -326,6 +326,7 @@ class DBAnalyzer:
     def store_articles(self, refresh=False):
         logger = self.logger
         try:
+            logger.info("Storing retrieved articles in database")
             stored_count = 0
             for i, art in enumerate(self.articles):
                 if art.processed:
@@ -419,6 +420,8 @@ class DBAnalyzer:
             for article in categorizations[party]:
                 article.set_tag(party)
         logger.info("Categorizations complete")
+        
+        return list(categorizations.keys())
 
     
     def clear_categories(self):
@@ -439,15 +442,18 @@ class DBAnalyzer:
             if kwargs.get("category", False):
                 articles = [art for art in articles if art.has_tag(kwargs.get("category"))]
 
+
+            logger.info(f"Attempting to build wordlcoud on {len(articles)} articles.")
+
             articles_words = []
             # Concatenate word from each article
-            logger.info("Concatenating word from each article")
+            logger.debug("Concatenating word from each article")
             for art in articles:
                 logger.debug(f"Concatenating words in {art.URL}")
                 articles_words.append(" ".join(word for word in art.text.GRUNNFORM))
             
             # Concatenate words into a single long string
-            logger.info("Concatenating words into a single long string")
+            logger.debug("Concatenating words into a single long string")
             words = " ".join(s for s in articles_words)
 
             # Stopwords
@@ -468,7 +474,8 @@ class DBAnalyzer:
             cloud.generate(words)
 
             # Display
-            DBAnalyzer.__display_wordcloud(cloud)
+            if kwargs.get("display", True):
+                DBAnalyzer.__display_wordcloud(cloud)
 
             # Save to file
             if "save" in kwargs:
@@ -584,7 +591,9 @@ class DBAnalyzer:
                 logger.info(f"Plot saved at {location}.")
 
             # Show
-            plt.show()
+            if kwargs.get("display", True):
+                plt.show()
+            
 
              
         except Exception as e:
